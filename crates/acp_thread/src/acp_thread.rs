@@ -809,6 +809,83 @@ pub enum AcpThreadEvent {
 
 impl EventEmitter<AcpThreadEvent> for AcpThread {}
 
+#[derive(Debug, Clone)]
+pub enum TerminalProviderEvent {
+    Created {
+        label: String,
+        cwd: Option<PathBuf>,
+        output_byte_limit: Option<u64>,
+        terminal: Entity<::terminal::Terminal>,
+    },
+    Output {
+        terminal_id: acp::TerminalId,
+        data: Vec<u8>,
+    },
+    TitleChanged {
+        terminal_id: acp::TerminalId,
+        title: String,
+    },
+    Exit {
+        terminal_id: acp::TerminalId,
+        status: acp::TerminalExitStatus,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum TerminalProviderCommand {
+    WriteInput {
+        terminal_id: acp::TerminalId,
+        bytes: Vec<u8>,
+    },
+    Resize {
+        terminal_id: acp::TerminalId,
+        cols: u16,
+        rows: u16,
+    },
+    Close {
+        terminal_id: acp::TerminalId,
+    },
+}
+
+impl AcpThread {
+    pub fn on_terminal_provider_event(
+        &mut self,
+        event: TerminalProviderEvent,
+        cx: &mut Context<Self>,
+    ) {
+        match event {
+            TerminalProviderEvent::Created {
+                label,
+                cwd,
+                output_byte_limit,
+                terminal,
+            } => {
+                let _entity =
+                    self.register_terminal_created(label, cwd, output_byte_limit, terminal, cx);
+                cx.notify();
+            }
+            TerminalProviderEvent::Output {
+                terminal_id: _,
+                data: _,
+            } => {
+                // Scaffolding for display-only providers to stream bytes into renderer
+            }
+            TerminalProviderEvent::TitleChanged {
+                terminal_id: _,
+                title: _,
+            } => {
+                // Scaffolding hook
+            }
+            TerminalProviderEvent::Exit {
+                terminal_id: _,
+                status: _,
+            } => {
+                // Scaffolding hook
+            }
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Debug)]
 pub enum ThreadStatus {
     Idle,
