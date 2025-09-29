@@ -2079,6 +2079,32 @@ impl AcpThread {
     pub fn emit_load_error(&mut self, error: LoadError, cx: &mut Context<Self>) {
         cx.emit(AcpThreadEvent::LoadError(error));
     }
+
+    pub fn register_terminal_created(
+        &mut self,
+        command_label: String,
+        working_dir: Option<PathBuf>,
+        output_byte_limit: Option<u64>,
+        terminal: Entity<::terminal::Terminal>,
+        cx: &mut Context<Self>,
+    ) -> Entity<Terminal> {
+        let language_registry = self.project.read(cx).languages().clone();
+        let terminal_id = acp::TerminalId(Uuid::new_v4().to_string().into());
+
+        let entity = cx.new(|cx| {
+            Terminal::new(
+                terminal_id.clone(),
+                &command_label,
+                working_dir.clone(),
+                output_byte_limit.map(|l| l as usize),
+                terminal,
+                language_registry,
+                cx,
+            )
+        });
+        self.terminals.insert(terminal_id.clone(), entity.clone());
+        entity
+    }
 }
 
 fn markdown_for_raw_output(

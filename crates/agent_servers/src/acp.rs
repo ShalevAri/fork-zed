@@ -707,25 +707,69 @@ impl acp::Client for ClientDelegate {
         &self,
         args: acp::CreateTerminalRequest,
     ) -> Result<acp::CreateTerminalResponse, acp::Error> {
-        let terminal = self
-            .session_thread(&args.session_id)?
-            .update(&mut self.cx.clone(), |thread, cx| {
-                thread.create_terminal(
-                    args.command,
-                    args.args,
-                    args.env,
-                    args.cwd,
-                    args.output_byte_limit,
+        // TerminalProvider: spawn PTY task here and notify acp_thread to render
+        let thread = self.session_thread(&args.session_id)?;
+        let project = thread.read_with(&self.cx, |thread, _cx| thread.project().clone())?;
+
+        // Prepare environment based on cwd and extra env
+        let mut env = if let Some(dir) = &args.cwd {
+            project
+                .update(&mut self.cx.clone(), |project, cx| {
+                    project.directory_environment(dir.as_path().into(), cx)
+                })?
+                .await
+                .unwrap_or_default()
+        } else {
+            Default::default()
+        };
+        for var in args.env {
+            env.insert(var.name, var.value);
+        }
+
+        // Build shell command for the task
+        let remote_shell = project.update(&mut self.cx.clone(), |project, cx| {
+            project
+                .remote_client()
+                .and_then(|r| r.read(cx).default_system_shell())
+        })?;
+        let (task_command, task_args) =
+            task::ShellBuilder::new(remote_shell.as_deref(), &task::Shell::System)
+                .redirect_stdin_to_dev_null()
+                .build(Some(args.command.clone()), &args.args);
+
+        // Create the PTY-backed terminal (lower-level) via Project
+        let terminal_entity = project
+            .update(&mut self.cx.clone(), |project, cx| {
+                project.create_terminal_task(
+                    task::SpawnInTerminal {
+                        command: Some(task_command),
+                        args: task_args,
+                        cwd: args.cwd.clone(),
+                        env,
+                        ..Default::default()
+                    },
                     cx,
                 )
             })?
             .await?;
-        Ok(
-            terminal.read_with(&self.cx, |terminal, _| acp::CreateTerminalResponse {
-                terminal_id: terminal.id().clone(),
-                meta: None,
-            })?,
-        )
+
+        // Register with acp_thread (renderer), which will generate an ID, then return it
+        let label = format!("{} {}", args.command, args.args.join(" "));
+        let terminal_entity_in_acp_thread = thread.update(&mut self.cx.clone(), |thread, cx| {
+            thread.register_terminal_created(
+                label,
+                args.cwd.clone(),
+                args.output_byte_limit,
+                terminal_entity,
+                cx,
+            )
+        })?;
+        let terminal_id = terminal_entity_in_acp_thread
+            .read_with(&self.cx, |terminal, _| terminal.id().clone())?;
+        Ok(acp::CreateTerminalResponse {
+            terminal_id,
+            meta: None,
+        })
     }
 
     async fn kill_terminal_command(
