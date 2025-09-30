@@ -11,8 +11,8 @@ use futures::channel::mpsc;
 use futures::{FutureExt as _, StreamExt as _};
 use gpui::{AppContext, Application, AsyncApp};
 use gpui::{Entity, Task};
-use language::Bias;
 use language::Point;
+use language::{Bias, LanguageServerId};
 use language::{Buffer, OffsetRangeExt};
 use language_model::LlmApiToken;
 use ordered_float::OrderedFloat;
@@ -224,7 +224,8 @@ async fn get_context(
 
     let (_lsp_open_handle, buffer) = if use_language_server {
         let (lsp_open_handle, buffer) =
-            open_buffer_with_language_server(&project, &worktree, &cursor.path, cx).await?;
+            open_buffer_with_language_server_and_save(&project, &worktree, &cursor.path, cx)
+                .await?;
         (Some(lsp_open_handle), buffer)
     } else {
         let buffer = open_buffer(&project, &worktree, &cursor.path, cx).await?;
@@ -373,6 +374,26 @@ pub async fn retrieval_stats(
         .read_with(cx, |index, cx| index.indexed_file_paths(cx))?
         .await;
 
+    let lsp_store = project.read_with(cx, |project, _cx| project.lsp_store())?;
+    cx.subscribe(&lsp_store, {
+        move |_, event, _| {
+            if let project::LspStoreEvent::LanguageServerUpdate {
+                message:
+                    client::proto::update_language_server::Variant::WorkProgress(
+                        client::proto::LspWorkProgress {
+                            message: Some(message),
+                            ..
+                        },
+                    ),
+                ..
+            } = event
+            {
+                println!("⟲ {message}")
+            }
+        }
+    })?
+    .detach();
+
     let mut lsp_open_handles = Vec::new();
     let mut output = std::fs::File::create("retrieval-stats.txt")?;
     let mut results = Vec::new();
@@ -383,10 +404,15 @@ pub async fn retrieval_stats(
             files.len(),
             project_path.path.display(PathStyle::Posix)
         );
-        let Some((lsp_open_handle, buffer)) =
-            open_buffer_with_language_server(&project, &worktree, &project_path.path, cx)
-                .await
-                .log_err()
+        let Some((lsp_open_handle, language_server_id, buffer)) =
+            open_buffer_with_language_server_wait_for_register(
+                &project,
+                &worktree,
+                &project_path.path,
+                cx,
+            )
+            .await
+            .log_err()
         else {
             continue;
         };
@@ -400,6 +426,25 @@ pub async fn retrieval_stats(
             ReferenceRegion::Nearby,
             &snapshot,
         );
+
+        /* todo! remove this hack
+        loop {
+            let is_ready = lsp_store
+                .read_with(cx, |lsp_store, cx| {
+                    lsp_store
+                        .language_server_statuses
+                        .get(&language_server_id)
+                        .is_some_and(|status| status.pending_work.is_empty())
+                })
+                .unwrap();
+            if is_ready {
+                break;
+            }
+            cx.background_executor()
+                .timer(Duration::from_millis(10))
+                .await;
+        }
+        */
 
         let index = index.read_with(cx, |index, _cx| index.state().clone())?;
         let index = index.lock().await;
@@ -653,7 +698,7 @@ pub async fn open_buffer(
         .await
 }
 
-pub async fn open_buffer_with_language_server(
+pub async fn open_buffer_with_language_server_and_save(
     project: &Entity<Project>,
     worktree: &Entity<Worktree>,
     path: &RelPath,
@@ -672,6 +717,45 @@ pub async fn open_buffer_with_language_server(
     wait_for_lang_server(&project, &buffer, log_prefix.into_owned(), cx).await?;
 
     Ok((lsp_open_handle, buffer))
+}
+
+pub async fn open_buffer_with_language_server_wait_for_register(
+    project: &Entity<Project>,
+    worktree: &Entity<Worktree>,
+    path: &RelPath,
+    cx: &mut AsyncApp,
+) -> Result<(Entity<Entity<Buffer>>, LanguageServerId, Entity<Buffer>)> {
+    let buffer = open_buffer(project, worktree, path, cx).await?;
+
+    let lsp_open_handle = project.update(cx, |project, cx| {
+        project.register_buffer_with_language_servers(&buffer, cx)
+    })?;
+
+    let lsp_store = project
+        .read_with(cx, |project, _| project.lsp_store())
+        .unwrap();
+
+    // TODO: handle multiple language servers?
+    for i in 0..1000 {
+        let Some(language_server_id) = lsp_store.update(cx, |lsp_store, cx| {
+            buffer.update(cx, |buffer, cx| {
+                lsp_store
+                    .language_servers_for_local_buffer(&buffer, cx)
+                    .next()
+                    .map(|(_, language_server)| language_server.server_id())
+            })
+        })?
+        else {
+            cx.background_executor()
+                .timer(Duration::from_millis(10))
+                .await;
+            continue;
+        };
+
+        return Ok((lsp_open_handle, language_server_id, buffer));
+    }
+
+    return Err(anyhow!("No language server found for buffer"));
 }
 
 // TODO: Dedupe with similar function in crates/eval/src/instance.rs
