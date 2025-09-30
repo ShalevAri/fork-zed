@@ -511,6 +511,7 @@ async fn test_editing_files(cx: &mut gpui::TestAppContext) {
             panel
         })
         .unwrap();
+    cx.run_until_parked();
 
     select_path(&panel, "root1", cx);
     assert_eq!(
@@ -1038,6 +1039,7 @@ async fn test_adding_directory_via_file(cx: &mut gpui::TestAppContext) {
             panel
         })
         .unwrap();
+    cx.run_until_parked();
 
     select_path(&panel, "root1", cx);
     assert_eq!(
@@ -2005,6 +2007,7 @@ async fn test_create_duplicate_items(cx: &mut gpui::TestAppContext) {
             panel
         })
         .unwrap();
+    cx.run_until_parked();
 
     select_path(&panel, "src", cx);
     panel.update_in(cx, |panel, window, cx| panel.confirm(&Confirm, window, cx));
@@ -4076,6 +4079,7 @@ async fn test_creating_excluded_entries(cx: &mut gpui::TestAppContext) {
             panel
         })
         .unwrap();
+    cx.run_until_parked();
 
     select_path(&panel, "root1", cx);
     assert_eq!(
@@ -4260,6 +4264,7 @@ async fn test_selection_restored_when_creation_cancelled(cx: &mut gpui::TestAppC
             panel
         })
         .unwrap();
+    cx.run_until_parked();
 
     select_path(&panel, "src", cx);
     panel.update_in(cx, |panel, window, cx| panel.confirm(&Confirm, window, cx));
@@ -5589,6 +5594,7 @@ async fn test_create_entries_without_selection(cx: &mut gpui::TestAppContext) {
             panel
         })
         .unwrap();
+    cx.run_until_parked();
 
     #[rustfmt::skip]
     assert_eq!(
@@ -5666,6 +5672,7 @@ async fn test_create_entries_without_selection_hide_root(cx: &mut gpui::TestAppC
             panel
         })
         .unwrap();
+    cx.run_until_parked();
 
     #[rustfmt::skip]
     assert_eq!(
