@@ -201,7 +201,7 @@ use workspace::{
     CollaboratorId, Item as WorkspaceItem, ItemId, ItemNavHistory, OpenInTerminal, OpenTerminal,
     RestoreOnStartupBehavior, SERIALIZATION_THROTTLE_TIME, SplitDirection, TabBarSettings, Toast,
     ViewId, Workspace, WorkspaceId, WorkspaceSettings,
-    item::{ItemHandle, PreviewTabsSettings, SaveOptions},
+    item::{ItemBufferKind, ItemHandle, PreviewTabsSettings, SaveOptions},
     notifications::{DetachAndPromptErr, NotificationId, NotifyTaskExt},
     searchable::SearchEvent,
 };
@@ -7290,7 +7290,7 @@ impl Editor {
     }
 
     pub fn supports_minimap(&self, cx: &App) -> bool {
-        !self.minimap_visibility.disabled() && self.is_singleton(cx)
+        !self.minimap_visibility.disabled() && self.buffer_kind(cx) == ItemBufferKind::Singleton
     }
 
     fn edit_predictions_enabled_in_buffer(
@@ -17946,7 +17946,7 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.is_singleton(cx) {
+        if self.buffer_kind(cx) == ItemBufferKind::Singleton {
             let selection = self.selections.newest::<Point>(cx);
 
             let display_map = self.display_map.update(cx, |map, cx| map.snapshot(cx));
@@ -18012,7 +18012,7 @@ impl Editor {
     }
 
     pub fn fold(&mut self, _: &actions::Fold, window: &mut Window, cx: &mut Context<Self>) {
-        if self.is_singleton(cx) {
+        if self.buffer_kind(cx) == ItemBufferKind::Singleton {
             let mut to_fold = Vec::new();
             let display_map = self.display_map.update(cx, |map, cx| map.snapshot(cx));
             let selections = self.selections.all_adjusted(cx);
@@ -18256,7 +18256,7 @@ impl Editor {
     }
 
     pub fn unfold_lines(&mut self, _: &UnfoldLines, _window: &mut Window, cx: &mut Context<Self>) {
-        if self.is_singleton(cx) {
+        if self.buffer_kind(cx) == ItemBufferKind::Singleton {
             let display_map = self.display_map.update(cx, |map, cx| map.snapshot(cx));
             let buffer = &display_map.buffer_snapshot;
             let selections = self.selections.all::<Point>(cx);
@@ -19032,7 +19032,7 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<Entity<Self>> {
-        (minimap_settings.minimap_enabled() && self.is_singleton(cx))
+        (minimap_settings.minimap_enabled() && self.buffer_kind(cx) == ItemBufferKind::Singleton)
             .then(|| self.initialize_new_minimap(minimap_settings, window, cx))
     }
 
@@ -21810,7 +21810,7 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Editor>,
     ) {
-        if self.is_singleton(cx)
+        if self.buffer_kind(cx) == ItemBufferKind::Singleton
             && !self.mode.is_minimap()
             && WorkspaceSettings::get(None, cx).restore_on_startup != RestoreOnStartupBehavior::None
         {

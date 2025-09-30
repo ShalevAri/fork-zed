@@ -93,7 +93,8 @@ use util::post_inc;
 use util::{RangeExt, ResultExt, debug_panic};
 use workspace::{
     CollaboratorId, ItemSettings, OpenInTerminal, OpenTerminal, RevealInProjectPanel, Workspace,
-    item::Item, notifications::NotifyTaskExt,
+    item::{Item, ItemBufferKind},
+    notifications::NotifyTaskExt,
 };
 
 /// Determines what kinds of highlights should be applied to a lines background.
@@ -373,7 +374,7 @@ impl EditorElement {
         register_action(editor, window, Editor::move_to_enclosing_bracket);
         register_action(editor, window, Editor::undo_selection);
         register_action(editor, window, Editor::redo_selection);
-        if !editor.read(cx).is_singleton(cx) {
+        if editor.read(cx).buffer_kind(cx) == ItemBufferKind::Multibuffer {
             register_action(editor, window, Editor::expand_excerpts);
             register_action(editor, window, Editor::expand_excerpts_up);
             register_action(editor, window, Editor::expand_excerpts_down);
@@ -1756,7 +1757,7 @@ impl EditorElement {
         let show_scrollbars = match scrollbar_settings.show {
             ShowScrollbar::Auto => {
                 let editor = self.editor.read(cx);
-                let is_singleton = editor.is_singleton(cx);
+                let is_singleton = editor.buffer_kind(cx) == ItemBufferKind::Singleton;
                 // Git
                 (is_singleton && scrollbar_settings.git_diff && snapshot.buffer_snapshot.has_diff_hunks())
                 ||
@@ -3245,7 +3246,7 @@ impl EditorElement {
     ) -> Vec<Option<AnyElement>> {
         let include_fold_statuses = EditorSettings::get_global(cx).gutter.folds
             && snapshot.mode.is_full()
-            && self.editor.read(cx).is_singleton(cx);
+            && self.editor.read(cx).buffer_kind(cx) == ItemBufferKind::Singleton;
         if include_fold_statuses {
             row_infos
                 .iter()
@@ -5751,7 +5752,7 @@ impl EditorElement {
     }
 
     fn paint_line_numbers(&mut self, layout: &mut EditorLayout, window: &mut Window, cx: &mut App) {
-        let is_singleton = self.editor.read(cx).is_singleton(cx);
+        let is_singleton = self.editor.read(cx).buffer_kind(cx) == ItemBufferKind::Singleton;
 
         let line_height = layout.position_map.line_height;
         window.set_cursor_style(CursorStyle::Arrow, &layout.gutter_hitbox);
@@ -6545,7 +6546,7 @@ impl EditorElement {
         cx: &mut App,
     ) {
         self.editor.update(cx, |editor, cx| {
-            if !editor.is_singleton(cx)
+            if editor.buffer_kind(cx) != ItemBufferKind::Singleton
                 || !editor
                     .scrollbar_marker_state
                     .should_refresh(scrollbar_layout.hitbox.size)
@@ -8662,25 +8663,26 @@ impl Element for EditorElement {
                         .map(|editor| {
                             editor.update(cx, |editor, cx| {
                                 let all_selections = editor.selections.all::<Point>(cx);
-                                let selected_buffer_ids = if editor.is_singleton(cx) {
-                                    Vec::new()
-                                } else {
-                                    let mut selected_buffer_ids =
-                                        Vec::with_capacity(all_selections.len());
+                                let selected_buffer_ids =
+                                    if editor.buffer_kind(cx) == ItemBufferKind::Singleton {
+                                        Vec::new()
+                                    } else {
+                                        let mut selected_buffer_ids =
+                                            Vec::with_capacity(all_selections.len());
 
-                                    for selection in all_selections {
-                                        for buffer_id in snapshot
-                                            .buffer_snapshot
-                                            .buffer_ids_for_range(selection.range())
-                                        {
-                                            if selected_buffer_ids.last() != Some(&buffer_id) {
-                                                selected_buffer_ids.push(buffer_id);
+                                        for selection in all_selections {
+                                            for buffer_id in snapshot
+                                                .buffer_snapshot
+                                                .buffer_ids_for_range(selection.range())
+                                            {
+                                                if selected_buffer_ids.last() != Some(&buffer_id) {
+                                                    selected_buffer_ids.push(buffer_id);
+                                                }
                                             }
                                         }
-                                    }
 
-                                    selected_buffer_ids
-                                };
+                                        selected_buffer_ids
+                                    };
 
                                 let mut selections = editor
                                     .selections

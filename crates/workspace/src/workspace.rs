@@ -60,7 +60,10 @@ use notifications::{
     simple_message_notification::MessageNotification,
 };
 pub use pane::*;
-pub use pane_group::*;
+pub use pane_group::{
+    ActivePaneDecorator, HANDLE_HITBOX_SIZE, Member, PaneAxis, PaneGroup, PaneRenderContext,
+    SplitDirection,
+};
 use persistence::{DB, SerializedWindowBounds, model::SerializedWorkspace};
 pub use persistence::{
     DB as WORKSPACE_DB, WorkspaceDb, delete_unloaded_items,
@@ -116,11 +119,11 @@ pub use workspace_settings::{
 };
 use zed_actions::{Spawn, feedback::FileBugReport};
 
-use crate::notifications::NotificationId;
 use crate::persistence::{
     SerializedAxis,
     model::{DockData, DockStructure, SerializedItem, SerializedPane, SerializedPaneGroup},
 };
+use crate::{item::ItemBufferKind, notifications::NotificationId};
 
 pub const SERIALIZATION_THROTTLE_TIME: Duration = Duration::from_millis(200);
 
@@ -2515,8 +2518,12 @@ impl Workspace {
             };
 
             for (pane, item) in dirty_items {
-                let (singleton, project_entry_ids) =
-                    cx.update(|_, cx| (item.is_singleton(cx), item.project_entry_ids(cx)))?;
+                let (singleton, project_entry_ids) = cx.update(|_, cx| {
+                    (
+                        item.buffer_kind(cx) == ItemBufferKind::Singleton,
+                        item.project_entry_ids(cx),
+                    )
+                })?;
                 if (singleton || !project_entry_ids.is_empty())
                     && !Pane::save_item(project.clone(), &pane, &*item, save_intent, cx).await?
                 {
@@ -4791,7 +4798,7 @@ impl Workspace {
                             .items()
                             .find_map(|item| {
                                 let item = item.to_followable_item_handle(cx)?;
-                                if item.is_singleton(cx)
+                                if item.buffer_kind(cx) == ItemBufferKind::Singleton
                                     && item.project_item_model_ids(cx).as_slice()
                                         == [buffer_entity_id]
                                 {
@@ -8169,7 +8176,7 @@ mod tests {
     use crate::{
         dock::{PanelEvent, test::TestPanel},
         item::{
-            ItemEvent,
+            ItemBufferKind, ItemEvent,
             test::{TestItem, TestProjectItem},
         },
     };
@@ -8530,7 +8537,7 @@ mod tests {
         let item_2_3 = cx.new(|cx| {
             TestItem::new(cx)
                 .with_dirty(true)
-                .with_singleton(false)
+                .with_buffer_kind(ItemBufferKind::Multibuffer)
                 .with_project_items(&[
                     single_entry_items[2].read(cx).project_items[0].clone(),
                     single_entry_items[3].read(cx).project_items[0].clone(),
@@ -8539,7 +8546,7 @@ mod tests {
         let item_3_4 = cx.new(|cx| {
             TestItem::new(cx)
                 .with_dirty(true)
-                .with_singleton(false)
+                .with_buffer_kind(ItemBufferKind::Multibuffer)
                 .with_project_items(&[
                     single_entry_items[3].read(cx).project_items[0].clone(),
                     single_entry_items[4].read(cx).project_items[0].clone(),
@@ -9560,7 +9567,7 @@ mod tests {
         let dirty_multi_buffer_with_both = cx.new(|cx| {
             TestItem::new(cx)
                 .with_dirty(true)
-                .with_singleton(false)
+                .with_buffer_kind(ItemBufferKind::Multibuffer)
                 .with_label("Fake Project Search")
                 .with_project_items(&[
                     dirty_regular_buffer.read(cx).project_items[0].clone(),
@@ -9711,7 +9718,7 @@ mod tests {
         let dirty_multi_buffer_with_both = cx.new(|cx| {
             TestItem::new(cx)
                 .with_dirty(true)
-                .with_singleton(false)
+                .with_buffer_kind(ItemBufferKind::Multibuffer)
                 .with_label("Fake Project Search")
                 .with_project_items(&[
                     dirty_regular_buffer.read(cx).project_items[0].clone(),
@@ -10125,7 +10132,7 @@ mod tests {
         let dirty_multi_buffer = cx.new(|cx| {
             TestItem::new(cx)
                 .with_dirty(true)
-                .with_singleton(false)
+                .with_buffer_kind(ItemBufferKind::Multibuffer)
                 .with_label("Fake Project Search")
                 .with_project_items(&[
                     dirty_regular_buffer.read(cx).project_items[0].clone(),

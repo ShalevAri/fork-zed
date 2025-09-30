@@ -18744,8 +18744,9 @@ async fn test_multibuffer_in_navigation_history(cx: &mut TestAppContext) {
             let active_item = workspace
                 .active_item(cx)
                 .expect("should have an active item after adding the multi buffer");
-            assert!(
-                !active_item.is_singleton(cx),
+            assert_eq!(
+                active_item.buffer_kind(cx),
+                ItemBufferKind::Multibuffer,
                 "A multi buffer was expected to active after adding"
             );
             active_item.item_id()
@@ -18773,8 +18774,9 @@ async fn test_multibuffer_in_navigation_history(cx: &mut TestAppContext) {
                 first_item_id, multibuffer_item_id,
                 "Should navigate into the 1st buffer and activate it"
             );
-            assert!(
-                active_item.is_singleton(cx),
+            assert_eq!(
+                active_item.buffer_kind(cx),
+                ItemBufferKind::Singleton,
                 "New active item should be a singleton buffer"
             );
             assert_eq!(
@@ -18804,7 +18806,7 @@ async fn test_multibuffer_in_navigation_history(cx: &mut TestAppContext) {
                 multibuffer_item_id,
                 "Should navigate back to the multi buffer"
             );
-            assert!(!active_item.is_singleton(cx));
+            assert_eq!(active_item.buffer_kind(cx), ItemBufferKind::Multibuffer);
         })
         .unwrap();
 
@@ -18832,8 +18834,9 @@ async fn test_multibuffer_in_navigation_history(cx: &mut TestAppContext) {
                 second_item_id, first_item_id,
                 "Should navigate into the 2nd buffer and activate it"
             );
-            assert!(
-                active_item.is_singleton(cx),
+            assert_eq!(
+                active_item.buffer_kind(cx),
+                ItemBufferKind::Singleton,
                 "New active item should be a singleton buffer"
             );
             assert_eq!(
@@ -18863,7 +18866,7 @@ async fn test_multibuffer_in_navigation_history(cx: &mut TestAppContext) {
                 multibuffer_item_id,
                 "Should navigate back from the 2nd buffer to the multi buffer"
             );
-            assert!(!active_item.is_singleton(cx));
+            assert_eq!(active_item.buffer_kind(cx), ItemBufferKind::Multibuffer);
         })
         .unwrap();
 
@@ -18889,8 +18892,9 @@ async fn test_multibuffer_in_navigation_history(cx: &mut TestAppContext) {
             );
             assert_ne!(third_item_id, first_item_id);
             assert_ne!(third_item_id, second_item_id);
-            assert!(
-                active_item.is_singleton(cx),
+            assert_eq!(
+                active_item.buffer_kind(cx),
+                ItemBufferKind::Singleton,
                 "New active item should be a singleton buffer"
             );
             assert_eq!(
@@ -18918,7 +18922,7 @@ async fn test_multibuffer_in_navigation_history(cx: &mut TestAppContext) {
                 multibuffer_item_id,
                 "Should navigate back from the 3rd buffer to the multi buffer"
             );
-            assert!(!active_item.is_singleton(cx));
+            assert_eq!(active_item.buffer_kind(cx), ItemBufferKind::Multibuffer);
         })
         .unwrap();
 }
