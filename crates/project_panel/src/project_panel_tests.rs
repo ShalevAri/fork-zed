@@ -2274,6 +2274,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_next_git_entry(&SelectNextGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 0..6, cx),
@@ -2290,6 +2291,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_next_git_entry(&SelectNextGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 0..6, cx),
@@ -2306,6 +2308,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_next_git_entry(&SelectNextGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 6..9, cx),
@@ -2319,6 +2322,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_next_git_entry(&SelectNextGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 9..11, cx),
@@ -2328,6 +2332,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_next_git_entry(&SelectNextGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 13..16, cx),
@@ -2341,6 +2346,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_next_git_entry(&SelectNextGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 16..18, cx),
@@ -2351,6 +2357,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_next_git_entry(&SelectNextGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 0..18, cx),
@@ -2380,6 +2387,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_prev_git_entry(&SelectPrevGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 16..18, cx),
@@ -2389,6 +2397,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_prev_git_entry(&SelectPrevGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 13..16, cx),
@@ -2402,6 +2411,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_prev_git_entry(&SelectPrevGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 9..11, cx),
@@ -2411,6 +2421,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_prev_git_entry(&SelectPrevGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 6..9, cx),
@@ -2424,6 +2435,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_prev_git_entry(&SelectPrevGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 0..6, cx),
@@ -2440,6 +2452,7 @@ async fn test_select_git_entry(cx: &mut gpui::TestAppContext) {
     panel.update_in(cx, |panel, window, cx| {
         panel.select_prev_git_entry(&SelectPrevGitEntry, window, cx);
     });
+    cx.run_until_parked();
 
     assert_eq!(
         visible_entries_as_strings(&panel, 0..6, cx),
@@ -3149,12 +3162,32 @@ async fn test_multiple_marked_entries(cx: &mut gpui::TestAppContext) {
         panel.update(cx, |this, cx| {
             this.select_next(&Default::default(), window, cx);
             this.expand_selected_entry(&Default::default(), window, cx);
+        })
+    });
+    cx.run_until_parked();
+
+    cx.update(|window, cx| {
+        panel.update(cx, |this, cx| {
             this.expand_selected_entry(&Default::default(), window, cx);
+        })
+    });
+    cx.run_until_parked();
+
+    cx.update(|window, cx| {
+        panel.update(cx, |this, cx| {
             this.select_next(&Default::default(), window, cx);
             this.expand_selected_entry(&Default::default(), window, cx);
+        })
+    });
+    cx.run_until_parked();
+
+    cx.update(|window, cx| {
+        panel.update(cx, |this, cx| {
             this.select_next(&Default::default(), window, cx);
         })
     });
+    cx.run_until_parked();
+
     assert_eq!(
         visible_entries_as_strings(&panel, 0..10, cx),
         &[
@@ -5446,6 +5479,7 @@ async fn test_collapse_all_for_entry(cx: &mut gpui::TestAppContext) {
             panel.collapse_all_for_entry(worktree.id(), entry_id, cx);
             panel.update_visible_entries(None, cx);
         });
+        cx.run_until_parked();
 
         assert_eq!(
             visible_entries_as_strings(&panel, 0..20, cx),
@@ -6609,15 +6643,13 @@ fn select_path(panel: &Entity<ProjectPanel>, path: &str, cx: &mut VisualTestCont
             let worktree = worktree.read(cx);
             if let Ok(relative_path) = path.strip_prefix(worktree.root_name()) {
                 let entry_id = worktree.entry_for_path(relative_path).unwrap().id;
-                panel.state.selection = Some(crate::SelectedEntry {
-                    worktree_id: worktree.id(),
-                    entry_id,
-                });
+                panel.update_visible_entries(Some((worktree.id(), entry_id)), cx);
                 return;
             }
         }
         panic!("no worktree for path {:?}", path);
     });
+    cx.run_until_parked();
 }
 
 fn select_path_with_mark(panel: &Entity<ProjectPanel>, path: &str, cx: &mut VisualTestContext) {
